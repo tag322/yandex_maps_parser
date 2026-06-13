@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-// import axios from 'axios'
+import axios from 'axios'
 
 const url = ref('')
 const error = ref('')
@@ -24,7 +24,7 @@ const save = async () => {
     loading.value = true
 
     try {
-        await axios.post('/api/settings/saves', {
+        await axios.post('/api/setPlace', {
             url: value,
         })
     } catch (e) {
