@@ -18,4 +18,8 @@ class Review extends Model
         'text',
         'published_at',
     ];
+
+    protected $casts = [
+        'published_at' => 'datetime',
+    ];
 }

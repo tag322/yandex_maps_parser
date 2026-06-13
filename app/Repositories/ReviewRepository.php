@@ -50,7 +50,9 @@ class ReviewRepository
                 'author' => $r['author'] ?? null,
                 'rating' => $r['rating'] ?? null,
                 'text' => $r['text'] ?? '',
-                'published_at' => $r['published_at'] ?? null,
+                'published_at' => isset($r['date'])
+                    ? \Carbon\Carbon::parse($r['date'])
+                    : null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ], $reviews);
