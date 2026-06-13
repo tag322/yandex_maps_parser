@@ -1,0 +1,149 @@
+const { chromium } = require('playwright');
+
+(async () => {
+
+    const url = process.argv[2];
+    
+    const browser = await chromium.launch({
+        headless: true
+    });
+
+    const context = await browser.newContext({
+        locale: 'ru-RU',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        viewport: { width: 1600, height: 900 }
+    });
+
+    const page = await context.newPage();
+
+    const reviews = [];
+
+    let firstBatchReceived = false;
+    let stop = false;
+
+    console.error('GOING'); //.log ломает stdout. Если что-то логгировать, то через .error
+
+    // слушаем каждый запрос новых отзывов
+    page.on('response', async (response) => {
+        if (!response.url().includes('/fetchReviews')) return;
+
+        try {
+        const json = await response.json();
+        const batch = json?.data?.reviews || [];
+
+        for (const r of batch) {
+            reviews.push({
+                author: r?.author?.name || null,
+                date: r?.updatedTime || null,
+                text: r?.text || null,
+                rating: r?.rating || null
+            });
+        }
+
+        } catch (e) {
+            // игнорируем если что-то не так
+        }
+    });
+
+    await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
+    });
+
+    // ждём UI
+    await page.waitForSelector('.business-card-view__main-wrapper');
+
+    const meta = await extractPlaceMeta(page);
+
+    console.error(meta) 
+
+    // кликаем на вкладку отзывов (ибо при переходе сразу на reviews они подгружаются сразу со страницей, без доп запроса)
+    const reviewsTab = page.locator('[role="tab"]', { hasText: 'Отзывы' });
+
+    await reviewsTab.waitFor({ timeout: 15000 });
+    await reviewsTab.click();
+
+    console.error('CLICKED REVIEWS');
+
+    // ждём прогрузки вкладки отзывов
+    await page.waitForSelector('.business-card-view__section');
+
+    const scrollContainer = page.locator('.scroll__container');
+
+    await scrollContainer.waitFor({ state: 'attached' });
+
+    console.error('START SCROLL');
+
+    let lastCount = 0;
+    let stableTicks = 0;
+
+    while (reviews.length < meta.reviews_count) {
+
+        await scrollContainer.evaluate(el => el.scrollTop = el.scrollHeight);
+
+        await page.waitForTimeout(1200);
+
+        if (reviews.length === lastCount) {
+            stableTicks++;
+        } else {
+            stableTicks = 0;
+            lastCount = reviews.length;
+        }
+    }
+
+    console.error('DONE:', reviews.length);
+
+    // console.error(JSON.stringify(reviews));
+
+    await browser.close();
+
+    await new Promise(r => setTimeout(r, 500));
+
+    process.stdout.write(JSON.stringify({
+        ...meta,
+        reviews
+    }));
+    process.exit(0);
+})();
+
+async function extractPlaceMeta(page) {
+    const title = await page
+        .locator('.card-title-view__title-link')
+        .textContent()
+        .catch(() => null);
+
+    const ratingText = await page
+        .locator('.business-rating-badge-view__rating-text')
+        .first()
+        .textContent()
+        .catch(() => null);
+
+    const reviewsCountText = await page
+        .locator('._name_reviews .tabs-select-view__counter')
+        .first()
+        .textContent()
+        .catch(() => null);
+
+    const ratingsCountText = await page
+        .locator('.business-header-rating-view__text')
+        .first()
+        .textContent()
+        .catch(() => null);
+
+    const parseNumber = (str) => {
+        if (!str) return null;
+        return parseInt(str.replace(/\D/g, ''), 10) || null;
+    };
+
+    const parseRating = (str) => {
+        if (!str) return null;
+        return parseFloat(str.replace(',', '.')) || null;
+    };
+
+    return {
+        title,
+        rating: parseRating(ratingText),
+        reviews_count: parseNumber(reviewsCountText),
+        ratings_count: parseNumber(ratingsCountText),
+    };
+}
