@@ -25,7 +25,8 @@ const { chromium } = require('playwright');
 
     // слушаем каждый запрос новых отзывов
     page.on('response', async (response) => {
-        if (!response.url().includes('/fetchReviews')) return;
+
+        if (!response.url().includes('/fetchReviews?')) return;
 
         try {
         const json = await response.json();
@@ -50,8 +51,8 @@ const { chromium } = require('playwright');
         timeout: 60000
     });
 
-    // ждём UI
-    await page.waitForSelector('.business-card-view__main-wrapper');
+    // поздно рендерится, хотябы какой-то маркер готовности страницы
+    await page.waitForSelector('.carousel__scrollable._smooth-scroll');
 
     const meta = await extractPlaceMeta(page);
 
@@ -66,11 +67,7 @@ const { chromium } = require('playwright');
     console.error('CLICKED REVIEWS');
 
     // ждём прогрузки вкладки отзывов
-    await page.waitForSelector('.business-card-view__section');
-
-    const scrollContainer = page.locator('.scroll__container');
-
-    await scrollContainer.waitFor({ state: 'attached' });
+    await page.waitForSelector('[data-chunk="reviews"]');
 
     console.error('START SCROLL');
 
@@ -78,16 +75,33 @@ const { chromium } = require('playwright');
     let stableTicks = 0;
 
     while (reviews.length < meta.reviews_count) {
+        console.error(reviews.length)
+
+        const scrollContainer = page.locator('.scroll__container');
+
+        await scrollContainer.waitFor({ state: 'attached' });
+
+        // await scrollContainer.evaluate(el => {
+        //     el.scrollBy({
+        //         top: 600,
+        //         behavior: 'smooth'
+        //     });
+        // });
 
         await scrollContainer.evaluate(el => el.scrollTop = el.scrollHeight);
 
-        await page.waitForTimeout(1200);
+        await page.waitForTimeout(1000);
 
         if (reviews.length === lastCount) {
             stableTicks++;
         } else {
             stableTicks = 0;
             lastCount = reviews.length;
+        }
+
+        if (stableTicks >= 5) {
+            console.error('No new reviews');
+            break;
         }
     }
 
