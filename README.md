@@ -5,3 +5,13 @@
 Выбрал парсинг через headless браузер ибо до тестового вообще не знал про такой инструмент - было интересно попробовать.
 
 По обработке ошибок, честно говоря, не густо - некоторые базовые сценарии покрыл, но этого явно мало.
+
+Базовый гайд по локальному запуску:
+
+1. composer install
+2. Настройка .env (впринципе, только бд надо подключить)
+3. php artisan key:generate & php artisan migrate & php artisan db:seed
+4. Нужна нода не более 20ой версии для работы playwright.
+5. npm install
+6. npm install playwright
+7. npx playwright install chromium
