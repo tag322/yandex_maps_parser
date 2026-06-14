@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 
 (async () => {
 
-    const url = 'https://yandex.ru/maps/172/ufa/?ll=55.939096%2C54.724727&mode=poi&poi%5Bpoint%5D=55.939716%2C54.727237&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D57899447703&z=16';
+    const url = process.argv[2];
     
     const browser = await chromium.launch({
         headless: true,
